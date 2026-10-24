@@ -40,8 +40,14 @@ function renderForm() {
   });
   $('#provider-form').addEventListener('submit', async event => {event.preventDefault(); if(processing || sending || !validStep()) return; if(step < 3) {step++;renderForm();focusPage();} else await submitProvider();});
   if(step === 2) {
-    $('#photo-input').addEventListener('change', event => {addPhotos([...event.target.files]);event.target.value='';});
+    const input = $('#photo-input');
+    const button = $('button[data-action="choose-photos"]');
     const zone = $('#upload-zone');
+    input.addEventListener('change', event => {addPhotos([...event.target.files]);event.target.value='';});
+    button?.addEventListener('click', e => { e.stopPropagation(); input.click(); });
+    zone?.addEventListener('click', e => {
+      if(e.target !== button && !button.contains(e.target)) input.click();
+    });
     for(const name of ['dragenter','dragover']) zone.addEventListener(name, event => {event.preventDefault();zone.classList.add('dragging');});
     for(const name of ['dragleave','drop']) zone.addEventListener(name, event => {event.preventDefault();zone.classList.remove('dragging');});
     zone.addEventListener('drop', event => addPhotos([...event.dataTransfer.files]));
