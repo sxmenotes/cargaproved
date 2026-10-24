@@ -1,0 +1,43 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isAdmin() {
+      return request.auth != null && request.auth.uid == 'REEMPLAZAR_UID_ADMIN';
+    }
+    function text(value, minimum, maximum) {
+      return value is string && value.size() >= minimum && value.size() <= maximum;
+    }
+    match /providers/{uid} {
+      allow read: if isAdmin();
+      allow create: if request.auth != null
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider == 'anonymous'
+        && request.resource.data.keys().hasOnly(['ownerUid','name','description','services','whatsapp','facebook','website','instagram','tiktok','photos','createdAt','status'])
+        && request.resource.data.ownerUid == uid
+        && request.resource.data.status == 'pending'
+        && request.resource.data.createdAt == request.time
+        && text(request.resource.data.name, 1, 120)
+        && text(request.resource.data.description, 1, 3000)
+        && text(request.resource.data.services, 1, 3000)
+        && text(request.resource.data.whatsapp, 0, 500)
+        && text(request.resource.data.facebook, 0, 500)
+        && text(request.resource.data.website, 0, 500)
+        && text(request.resource.data.instagram, 0, 500)
+        && text(request.resource.data.tiktok, 0, 500)
+        && request.resource.data.photos is list
+        && request.resource.data.photos.size() <= 10
+        && request.resource.data.photos.toSet().size() == request.resource.data.photos.size()
+        && request.resource.data.photos.hasOnly([
+          'providers/' + uid + '/0', 'providers/' + uid + '/1',
+          'providers/' + uid + '/2', 'providers/' + uid + '/3',
+          'providers/' + uid + '/4', 'providers/' + uid + '/5',
+          'providers/' + uid + '/6', 'providers/' + uid + '/7',
+          'providers/' + uid + '/8', 'providers/' + uid + '/9'
+        ]);
+      allow update: if isAdmin()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status == 'reviewed';
+      allow delete: if false;
+    }
+  }
+}

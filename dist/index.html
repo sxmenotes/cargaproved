@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#244a3c"><meta name="description" content="Comparte la historia, los servicios y las fotos de tu empresa. El primer paso para crear tu vitrina virtual.">
+  <title>Tu Vitrina · Un espacio para tu negocio</title>
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Saltar al contenido</a>
+  <header class="header"><a class="brand" href="#" aria-label="Tu Vitrina, inicio"><span class="brand-icon" aria-hidden="true">▥</span>tu<span>vitrina</span><span class="brand-dot">.</span></a><div class="header-right"><span class="portal-label">PORTAL DE PROVEEDORES</span><button class="text-button" data-action="login"><span aria-hidden="true">♧</span> Administrador <span aria-hidden="true">↗</span></button></div></header>
+  <main id="main" tabindex="-1"></main>
+  <footer class="footer"><span>Un buen negocio merece una buena vitrina.</span><span>Hecho para conectar <span aria-hidden="true">↗</span></span></footer>
+  <dialog id="login-dialog" aria-labelledby="login-title"><button class="close-button" data-action="close-login" aria-label="Cerrar">×</button><span class="eyebrow">TU ESPACIO DE GESTIÓN</span><h2 id="login-title">Hola, administrador.</h2><p>Ingresa para revisar la información de tus proveedores.</p><form id="login-form"><label for="admin-email" id="email-label" hidden>Correo electrónico<input id="admin-email" type="email" autocomplete="username"></label><label for="admin-password">Contraseña<input id="admin-password" type="password" required autocomplete="current-password" placeholder="Ingresa tu contraseña"></label><p id="login-error" class="error" role="alert"></p><button class="button primary full" type="submit">Ingresar al panel <span>→</span></button></form><p class="demo-login" id="demo-login">Acceso de demostración: <strong>Vitrina2026!</strong><br>Esta clave solo habilita el panel local de prueba. La protección real se activa al conectar Firebase.</p></dialog>
+  <dialog id="detail-dialog" class="detail-dialog" aria-label="Información del proveedor"><button class="close-button" data-action="close-detail" aria-label="Cerrar">×</button><div id="detail-content"></div></dialog>
+  <div id="toast" class="toast" role="status" hidden></div>
+  <script type="module" src="app.js"></script>
+</body></html>
