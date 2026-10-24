@@ -31,12 +31,12 @@ let cloudPromise;
 async function cloud() {
   if (!cloudPromise) cloudPromise = (async () => {
     const base = 'https://www.gstatic.com/firebasejs/12.4.0/';
-    const [app, authApi, dbApi, storageApi] = await Promise.all(['firebase-app.js','firebase-auth.js','firebase-firestore.js'].map(path => import(base + path)));
+    const [app, authApi, dbApi] = await Promise.all(['firebase-app.js','firebase-auth.js','firebase-firestore.js'].map(path => import(base + path)));
     const instance = app.initializeApp(firebaseConfig);
     const auth = authApi.getAuth(instance);
     await authApi.setPersistence(auth, authApi.browserSessionPersistence);
     await auth.authStateReady();
-    return {authApi, dbApi, storageApi, auth, db:dbApi.getFirestore(instance), bucket:storageApi.getStorage(instance)};
+    return {authApi, dbApi, auth, db:dbApi.getFirestore(instance)};
   })();
   return cloudPromise;
 }

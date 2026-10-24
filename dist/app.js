@@ -118,7 +118,7 @@ $('#email-label').hidden=!isCloud;$('#admin-email').required=isCloud;$('#demo-lo
 $('#login-form').addEventListener('submit', async event=>{
   event.preventDefault();const button=$('button[type="submit"]',event.target);button.disabled=true;$('#login-error').textContent='';
   try {await login($('#admin-email').value,$('#admin-password').value);admin=true;$('#admin-password').value='';$('#login-dialog').close();if(location.hash==='#admin')dashboard();else location.hash='admin';}
-  catch(error){$('#login-error').textContent=isCloud?'No se pudo ingresar. Revisa tus credenciales y tu conexión.':error.message;}
+  catch(error){console.error(error);$('#login-error').textContent=isCloud?`No se pudo ingresar${error.code?` (${error.code})`:`: ${error.message}`}. Revisa tus credenciales y la configuración.`:error.message;}
   finally{button.disabled=false;}
 });
 document.addEventListener('click',async event=>{
