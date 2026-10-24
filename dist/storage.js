@@ -1,4 +1,13 @@
-import { firebaseConfig, adminUid } from './firebase-config.js';
+import { firebaseConfig, adminUid, imgbbKey } from './firebase-config.js';
+async function uploadToImgbb(photo) {
+  if (!imgbbKey) throw new Error('Falta configurar imgbbKey en firebase-config.js.');
+  const form = new FormData();
+  form.append('image', photo.blob, photo.name);
+  const response = await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(imgbbKey)}`, {method:'POST', body:form});
+  const json = await response.json().catch(() => null);
+  if (!response.ok || !json?.success) throw new Error(json?.error?.message || 'No se pudo subir una foto a ImgBB.');
+  return json.data.url;
+}
 export const isCloud = Boolean(firebaseConfig);
 const dbPromise = !isCloud ? new Promise((resolve, reject) => {
   const request = indexedDB.open('tu-vitrina', 1);
@@ -22,7 +31,7 @@ let cloudPromise;
 async function cloud() {
   if (!cloudPromise) cloudPromise = (async () => {
     const base = 'https://www.gstatic.com/firebasejs/12.4.0/';
-    const [app, authApi, dbApi, storageApi] = await Promise.all(['firebase-app.js','firebase-auth.js','firebase-firestore.js','firebase-storage.js'].map(path => import(base + path)));
+    const [app, authApi, dbApi, storageApi] = await Promise.all(['firebase-app.js','firebase-auth.js','firebase-firestore.js'].map(path => import(base + path)));
     const instance = app.initializeApp(firebaseConfig);
     const auth = authApi.getAuth(instance);
     await authApi.setPersistence(auth, authApi.browserSessionPersistence);
@@ -55,20 +64,14 @@ export async function saveProvider(data, onProgress) {
   if (!c.auth.currentUser) await c.authApi.signInAnonymously(c.auth);
   const uid = c.auth.currentUser.uid;
   const uploaded = [];
-  try {
-    for (let i = 0; i < data.photos.length; i++) {
-      const path = `providers/${uid}/${i}`;
-      await c.storageApi.uploadBytes(c.storageApi.ref(c.bucket, path), data.photos[i].blob, {contentType:data.photos[i].type});
-      uploaded.push(path);
-      onProgress(`Subiendo foto ${i + 1} de ${data.photos.length}…`);
-    }
-    await c.dbApi.setDoc(c.dbApi.doc(c.db, 'providers', uid), {
-      ...data, photos:uploaded, ownerUid:uid, createdAt:c.dbApi.serverTimestamp(), status:'pending'
-    });
-  } catch(error) {
-    await Promise.allSettled(uploaded.map(path => c.storageApi.deleteObject(c.storageApi.ref(c.bucket, path))));
-    throw error;
+  // ImgBB no permite borrar por API: si algo falla, las fotos ya subidas quedan huérfanas.
+  for (let i = 0; i < data.photos.length; i++) {
+    uploaded.push(await uploadToImgbb(data.photos[i]));
+    onProgress(`Subiendo foto ${i + 1} de ${data.photos.length}…`);
   }
+  await c.dbApi.setDoc(c.dbApi.doc(c.db, 'providers', uid), {
+    ...data, photos:uploaded, ownerUid:uid, createdAt:c.dbApi.serverTimestamp(), status:'pending'
+  });
   // Submission is committed; a logout failure must not be reported as a failed submission.
   await c.authApi.signOut(c.auth).catch(() => {});
   return uid;
@@ -86,6 +89,5 @@ export async function setReviewed(record) {
 }
 export async function photoUrl(photo) {
   if (!isCloud) return URL.createObjectURL(photo.blob);
-  const c = await cloud();
-  return c.storageApi.getDownloadURL(c.storageApi.ref(c.bucket, photo));
+  return photo;
 }

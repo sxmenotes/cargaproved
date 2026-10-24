@@ -2,7 +2,7 @@
 
 La página ya incluye el adaptador para Firebase. Mientras `firebaseConfig` sea `null`, funciona en modo de prueba: guarda fichas y fotos en IndexedDB del navegador. No se reciben envíos de otras personas. La clave `Vitrina2026!` es pública y solo sirve para recorrer la demostración; no protege los datos locales.
 
-Firebase se usará para tres cosas: Authentication para tu acceso, Firestore para los textos y Cloud Storage para las fotografías. No hace falta conectar ImgBB además de Firebase.
+Firebase se usará para dos cosas: Authentication para tu acceso y Firestore para los textos. Las fotografías se suben a ImgBB (gratis, sin plan Blaze) y en Firestore solo se guardan sus URLs.
 
 ## 1. Crear el proyecto y registrar la web
 
@@ -27,14 +27,13 @@ Firebase se usará para tres cosas: Authentication para tu acceso, Firestore par
 
 Las reglas permiten crear una ficha por sesión anónima. Solo tu UID puede leer las fichas y marcarlas como revisadas. Otros visitantes no pueden listar proveedores.
 
-## 4. Crear el almacenamiento de fotografías
+## 4. Fotografías con ImgBB
 
-1. En Storage, pulsa Comenzar y crea el bucket.
-2. **Cloud Storage requiere actualmente el plan Blaze y una cuenta de facturación.** Configura alertas de presupuesto en Google Cloud; las alertas no son un límite automático de gasto. Consulta los costos antes de habilitarlo: [requisitos oficiales de Cloud Storage](https://firebase.google.com/docs/storage/web/start) y [planes de Firebase](https://firebase.google.com/docs/projects/billing/firebase-pricing-plans).
-3. En `storage.rules`, reemplaza `REEMPLAZAR_UID_ADMIN` por el mismo UID.
-4. Copia esas reglas en la pestaña Reglas de Storage y publícalas. Si Firebase pide habilitar el acceso de las reglas de Storage a Firestore, acepta esa vinculación dentro de tu proyecto.
+1. Crea una cuenta en [imgbb.com](https://imgbb.com/) y obtén tu API key en [api.imgbb.com](https://api.imgbb.com/).
+2. Pégala en `imgbbKey` de `dist/firebase-config.js` (paso 5).
+3. No necesitas Cloud Storage ni `storage.rules`; el archivo queda sin uso.
 
-Las reglas limitan cada ficha a diez posiciones de imagen, de 0 a 9, y a 8 MB por archivo. Al finalizar el envío, el proveedor no puede alterar las fotos. La web comprueba que las imágenes puedan abrirse; las reglas comprueban tamaño y tipo MIME declarado. Los originales se consultan desde tu panel.
+**Limitaciones:** la API key queda visible en el navegador; las fotos son accesibles por URL para quien la tenga; el límite de 8 MB y 10 fotos solo lo valida la web; la API no permite borrar fotos (si un envío falla, las ya subidas quedan en tu cuenta de ImgBB). Úsalo solo con material que pueda ser público.
 
 ## 5. Conectar la página
 
@@ -45,11 +44,11 @@ export const firebaseConfig = {
   apiKey: 'VALOR_DE_FIREBASE',
   authDomain: 'TU_PROYECTO.firebaseapp.com',
   projectId: 'TU_PROYECTO',
-  storageBucket: 'NOMBRE_EXACTO_DEL_BUCKET',
   messagingSenderId: 'VALOR_DE_FIREBASE',
   appId: 'VALOR_DE_FIREBASE'
 };
 export const adminUid = 'UID_DE_TU_USUARIO_ADMIN';
+export const imgbbKey = 'TU_API_KEY_DE_IMGBB';
 ```
 
 Usa el nombre exacto del bucket que muestra Firebase. No incluyas tu contraseña ni claves privadas de una cuenta de servicio en ningún archivo del sitio. El UID de configuración habilita el acceso de la interfaz; las reglas del servidor son las que realmente autorizan la lectura.
