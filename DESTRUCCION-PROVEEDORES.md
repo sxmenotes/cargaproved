@@ -44,3 +44,11 @@ No se ejecutó ninguna destrucción sobre proveedores reales durante las pruebas
 - Si aparecen imágenes compartidas con otra ficha, enlaces no reconocidos, subcolecciones o respaldos que Cloudinary no confirma haber borrado, la operación se detiene para evitar declarar una eliminación total incompleta.
 
 Fuentes: [borrado de Cloudinary](https://cloudinary.com/documentation/delete_assets), [respaldos y versiones](https://cloudinary.com/documentation/backups_and_version_management), [Admin API](https://cloudinary.com/documentation/admin_api), [Firebase Admin](https://firebase.google.com/docs/admin/setup), [Vercel Node.js](https://vercel.com/docs/functions/runtimes/node-js).
+
+## Error de arranque ERR_REQUIRE_ESM en Vercel
+
+Firebase Admin 14 incorpora `jwks-rsa`, que carga `jose` con CommonJS. La versión 6 de `jose` es ESM y puede impedir el arranque bajo el cargador de Vercel. El proyecto fija únicamente esa dependencia transitiva en `jose@5.10.0` mediante `overrides` y el lockfile. No quitar este ajuste sin comprobar la prueba `server-startup.test.mjs`, que reproduce un entorno sin `require(ESM)` y verifica también la lectura de una clave JWKS real generada para la prueba.
+
+Si aparece ese error con una versión antigua del despliegue, desplegar el último commit con instalación de dependencias nueva (Redeploy sin reutilizar Build Cache). No requiere modificar reglas ni credenciales. Los errores de infraestructura ahora se distinguen de los errores JSON de la función en el panel.
+
+Referencia del fallo de dependencia: [firebase-admin-node #3181](https://github.com/firebase/firebase-admin-node/issues/3181).

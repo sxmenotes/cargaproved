@@ -1,5 +1,6 @@
 import { firebaseConfig, adminUid } from './firebase-config.js';
 import { uploadPhoto } from './cloudinary.js';
+import { readDestructionResponse } from './destruction-response.js';
 import { MAX_PHOTOS, RUBROS } from './provider-config.js';
 export const isCloud = Boolean(firebaseConfig);
 const dbPromise = !isCloud ? new Promise((resolve, reject) => {
@@ -101,6 +102,5 @@ export async function destroyProvider(id, confirmation) {
   try {
     response = await fetch('/api/destroy-provider', {method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify({id, confirmation})});
   } catch { throw new Error('Se perdió la conexión. Actualiza el panel y reintenta la destrucción si la ficha sigue visible.'); }
-  const data = await response.json().catch(() => null);
-  if (!response.ok || !data?.deleted) throw new Error(data?.error || 'No se confirmó la destrucción. Actualiza el panel antes de reintentar.');
+  await readDestructionResponse(response);
 }
