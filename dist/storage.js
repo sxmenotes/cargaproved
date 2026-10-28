@@ -1,4 +1,5 @@
 import { firebaseConfig, adminUid, imgbbKey } from './firebase-config.js';
+import { MAX_PHOTOS, RUBROS } from './provider-config.js';
 async function uploadToImgbb(photo) {
   if (!imgbbKey) throw new Error('Falta configurar imgbbKey en firebase-config.js.');
   const form = new FormData();
@@ -54,6 +55,8 @@ export async function login(email, password) {
 }
 export async function logout() {if (isCloud) {const c = await cloud(); await c.authApi.signOut(c.auth);}}
 export async function saveProvider(data, onProgress) {
+  if (!Array.isArray(data.photos) || data.photos.length > MAX_PHOTOS) throw new Error(`Puedes agregar hasta ${MAX_PHOTOS} fotos.`);
+  if (!RUBROS.includes(data.rubro)) throw new Error('Selecciona un rubro válido.');
   if (!isCloud) {
     const record = {...data, id:crypto.randomUUID(), createdAt:new Date().toISOString(), status:'pending'};
     await localOperation('readwrite', store => store.add(record));

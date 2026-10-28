@@ -13,12 +13,15 @@ Abre http://localhost:4173. El servidor usa Node.js y no requiere instalar depen
 
 ## Funciones
 
-- Formulario en cuatro pasos con nombre, descripción y servicios obligatorios.
+- Formulario en cuatro pasos con nombre, rubro, descripción y servicios obligatorios.
 - WhatsApp, Facebook, sitio web, Instagram y TikTok opcionales.
-- Hasta diez fotos JPG, PNG o WebP, de máximo 8 MB cada una; arrastrar, vista previa, quitar y validar archivos.
+- Hasta cinco fotos JPG, PNG o WebP, de máximo 8 MB cada una; arrastrar, vista previa, quitar y validar archivos.
 - Revisión previa y autorización para usar el material en la vitrina.
 - Borrador de textos local. Las fotos seleccionadas se mantienen en memoria hasta el envío; una vez enviadas se guardan como archivos en IndexedDB o Firebase.
 - Panel con contraseña, búsqueda, filtros, detalle, descarga de datos y fotos, y marcado como revisado.
+- Rubros tomados de [Red de Proveedores del Maule](https://www.redproveedoresdelmaule.cl/#rubros). Las fichas anteriores sin rubro siguen disponibles.
+- Descarga general JSON con todos los proveedores ordenados por nombre (A–Z), sin depender de la búsqueda ni de los filtros. Incluye todos los campos, fechas, estado y fotos: URLs en Firebase y datos base64 con metadatos en modo local.
+- El máximo de cinco fotos se aplica solo a nuevos envíos; las fotos existentes se conservan completas.
 - Estados vacíos, errores de guardado y confirmación de envío.
 
 ## Modo de prueba
@@ -43,3 +46,5 @@ Las pruebas necesitan Chromium instalado por Playwright o `PLAYWRIGHT_CHROMIUM_E
 `dist/` contiene todo el sitio publicable. `app.js` maneja la interfaz; `storage.js` selecciona IndexedDB o Firebase según `firebase-config.js`. Las reglas y la guía permanecen fuera de los archivos públicos.
 
 Fotografía decorativa: [Unsplash](https://images.unsplash.com/photo-1416879595882-3373a0480b5b) (servida desde una copia local de images.unsplash.com). La tarjeta «Raíces & hojas» es una ilustración, no un proveedor real. Tipografías DM Sans y Manrope desde Google Fonts, con fuentes del sistema como alternativa.
+
+Para actualizar un sitio conectado a Firebase, publica primero `firestore.rules` en el proyecto y después `dist/`. Las reglas nuevas admiten el rubro obligatorio y limitan las creaciones a cinco fotos; la lectura y el marcado como revisado de fichas anteriores no cambian.

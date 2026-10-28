@@ -12,7 +12,8 @@ service cloud.firestore {
       allow create: if request.auth != null
         && request.auth.uid == uid
         && request.auth.token.firebase.sign_in_provider == 'anonymous'
-        && request.resource.data.keys().hasOnly(['ownerUid','name','description','services','whatsapp','facebook','website','instagram','tiktok','photos','createdAt','status'])
+        && request.resource.data.keys().hasOnly(['ownerUid','name','rubro','description','services','whatsapp','facebook','website','instagram','tiktok','photos','createdAt','status'])
+        && request.resource.data.rubro in ['Animación y Entretenimiento','Autos y Traslados','Ceremonias Simbólicas','Diseño y Ambientación','Gastronomía y Vitivinicultura','Infraestructura y Locaciones','Moda, Estética y Joyería Fina','Producción Técnica y Audio','Registro Audiovisual']
         && request.resource.data.ownerUid == uid
         && request.resource.data.status == 'pending'
         && request.resource.data.createdAt == request.time
@@ -25,7 +26,7 @@ service cloud.firestore {
         && text(request.resource.data.instagram, 0, 500)
         && text(request.resource.data.tiktok, 0, 500)
         && request.resource.data.photos is list
-        && request.resource.data.photos.size() <= 10
+        && request.resource.data.photos.size() <= 5
         && request.resource.data.photos.toSet().size() == request.resource.data.photos.size();
       allow update: if isAdmin()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])

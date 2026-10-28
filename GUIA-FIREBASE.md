@@ -33,7 +33,7 @@ Las reglas permiten crear una ficha por sesión anónima. Solo tu UID puede leer
 2. Pégala en `imgbbKey` de `dist/firebase-config.js` (paso 5).
 3. No necesitas Cloud Storage ni `storage.rules`; el archivo queda sin uso.
 
-**Limitaciones:** la API key queda visible en el navegador; las fotos son accesibles por URL para quien la tenga; el límite de 8 MB y 10 fotos solo lo valida la web; la API no permite borrar fotos (si un envío falla, las ya subidas quedan en tu cuenta de ImgBB). Úsalo solo con material que pueda ser público.
+**Limitaciones:** la API key queda visible en el navegador; las fotos son accesibles por URL para quien la tenga; el tamaño máximo de 8 MB por foto lo valida la web; el máximo de 5 fotos para nuevos envíos también se valida en las reglas de Firestore; la API no permite borrar fotos (si un envío falla, las ya subidas quedan en tu cuenta de ImgBB). Úsalo solo con material que pueda ser público.
 
 ## 5. Conectar la página
 
