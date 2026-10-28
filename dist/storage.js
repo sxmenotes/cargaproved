@@ -1,14 +1,6 @@
-import { firebaseConfig, adminUid, imgbbKey } from './firebase-config.js';
+import { firebaseConfig, adminUid } from './firebase-config.js';
+import { uploadPhoto } from './cloudinary.js';
 import { MAX_PHOTOS, RUBROS } from './provider-config.js';
-async function uploadToImgbb(photo) {
-  if (!imgbbKey) throw new Error('Falta configurar imgbbKey en firebase-config.js.');
-  const form = new FormData();
-  form.append('image', photo.blob, photo.name);
-  const response = await fetch(`https://api.imgbb.com/1/upload?key=${encodeURIComponent(imgbbKey)}`, {method:'POST', body:form});
-  const json = await response.json().catch(() => null);
-  if (!response.ok || !json?.success) throw new Error(json?.error?.message || 'No se pudo subir una foto a ImgBB.');
-  return json.data.url;
-}
 export const isCloud = Boolean(firebaseConfig);
 const dbPromise = !isCloud ? new Promise((resolve, reject) => {
   const request = indexedDB.open('tu-vitrina', 1);
@@ -67,9 +59,9 @@ export async function saveProvider(data, onProgress) {
   if (!c.auth.currentUser) await c.authApi.signInAnonymously(c.auth);
   const uid = c.auth.currentUser.uid;
   const uploaded = [];
-  // ImgBB no permite borrar por API: si algo falla, las fotos ya subidas quedan huérfanas.
+  // Si falla el guardado, las fotos ya subidas se conservan en Cloudinary.
   for (let i = 0; i < data.photos.length; i++) {
-    uploaded.push(await uploadToImgbb(data.photos[i]));
+    uploaded.push(await uploadPhoto(data.photos[i]));
     onProgress(`Subiendo foto ${i + 1} de ${data.photos.length}…`);
   }
   await c.dbApi.setDoc(c.dbApi.doc(c.db, 'providers', uid), {

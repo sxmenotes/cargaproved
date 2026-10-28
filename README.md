@@ -17,7 +17,7 @@ Abre http://localhost:4173. El servidor usa Node.js y no requiere instalar depen
 - WhatsApp, Facebook, sitio web, Instagram y TikTok opcionales.
 - Hasta cinco fotos JPG, PNG o WebP, de máximo 8 MB cada una; arrastrar, vista previa, quitar y validar archivos.
 - Revisión previa y autorización para usar el material en la vitrina.
-- Borrador de textos local. Las fotos seleccionadas se mantienen en memoria hasta el envío; una vez enviadas se guardan como archivos en IndexedDB o Firebase.
+- Borrador de textos local. Las fotos seleccionadas se mantienen en memoria hasta el envío; una vez enviadas se guardan como archivos en IndexedDB en modo local, o Cloudinary con sus URLs en Firestore.
 - Panel con contraseña, búsqueda, filtros, detalle, descarga de datos y fotos, y marcado como revisado.
 - Rubros tomados de [Red de Proveedores del Maule](https://www.redproveedoresdelmaule.cl/#rubros). Las fichas anteriores sin rubro siguen disponibles.
 - Descarga general JSON con todos los proveedores ordenados por nombre (A–Z), sin depender de la búsqueda ni de los filtros. Incluye todos los campos, fechas, estado y fotos: URLs en Firebase y datos base64 con metadatos en modo local.
@@ -48,3 +48,7 @@ Las pruebas necesitan Chromium instalado por Playwright o `PLAYWRIGHT_CHROMIUM_E
 Fotografía decorativa: [Unsplash](https://images.unsplash.com/photo-1416879595882-3373a0480b5b) (servida desde una copia local de images.unsplash.com). La tarjeta «Raíces & hojas» es una ilustración, no un proveedor real. Tipografías DM Sans y Manrope desde Google Fonts, con fuentes del sistema como alternativa.
 
 Para actualizar un sitio conectado a Firebase, publica primero `firestore.rules` en el proyecto y después `dist/`. Las reglas nuevas admiten el rubro obligatorio y limitan las creaciones a cinco fotos; la lectura y el marcado como revisado de fichas anteriores no cambian.
+
+## Fotografías en Cloudinary
+
+La carga usa `fetch` sin instalar SDK. Configuración pública en `dist/cloudinary-config.js`; el preset debe ser **Unsigned**, con formatos JPG/PNG/WebP y máximo 8 MB configurados también en Cloudinary. Firebase conserva los textos y URLs. Publicar `dist/` para activar el cambio; las fichas existentes conservan sus enlaces hasta importar la migración. Nunca poner el API Secret en el sitio.

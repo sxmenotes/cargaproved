@@ -8,5 +8,3 @@ export const firebaseConfig = {
 };
 // Pendiente: UID del usuario administrador (Authentication → Usuarios).
 export const adminUid = 'sdSOSdUT2ASQOt7mp3d8egvD6Um2';
-// Pendiente: API key de ImgBB (https://api.imgbb.com/). Las fotos se suben a ImgBB y en Firestore se guardan solo las URLs.
-export const imgbbKey = 'b4f39288c42f5310ec02bbc121df04a9';

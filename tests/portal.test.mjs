@@ -8,7 +8,7 @@ const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR
 const file = i => ({name:`foto-${i}.png`,mimeType:'image/png',buffer:png});
 before(async()=>{browser=await chromium.launch({executablePath:process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH});});
 after(async()=>{await browser?.close();});
-async function start(viewport={width:1440,height:1000}) {const context=await browser.newContext({viewport});const page=await context.newPage();await page.route('**/firebase-config.js', route => route.fulfill({contentType:'text/javascript',body:'export const firebaseConfig = null; export const adminUid = null; export const imgbbKey = null;'}));await page.goto('http://localhost:4173');return{context,page};}
+async function start(viewport={width:1440,height:1000}) {const context=await browser.newContext({viewport});const page=await context.newPage();await page.route('**/firebase-config.js', route => route.fulfill({contentType:'text/javascript',body:'export const firebaseConfig = null; export const adminUid = null;'}));await page.goto('http://localhost:4173');return{context,page};}
 async function business(page,name='Jardín de prueba') {
   await page.getByRole('link',{name:'Proveedor, ¡Carga tu información!'}).click();
   await page.locator('#name').fill(name);await page.locator('#rubro').selectOption('Diseño y Ambientación');await page.locator('#description').fill('Somos una empresa de jardinería con diez años de experiencia.');await page.locator('#services').fill('Diseño de jardines y mantenimiento de espacios verdes.');
