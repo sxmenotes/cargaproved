@@ -1,4 +1,4 @@
-import { isCloud, login, logout, saveProvider, listProviders, setReviewed, photoUrl } from './storage.js';
+import { isCloud, login, logout, saveProvider, listProviders, setReviewed, photoUrl, destroyProvider } from './storage.js';
 import { MAX_PHOTOS, RUBROS } from './provider-config.js';
 import { buildProvidersExport, serializeProvider, downloadJson } from './export.js';
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -7,7 +7,8 @@ const blank = () => ({ name: '', rubro: '', description: '', services: '', whats
 let draft = blank();
 try { const saved = JSON.parse(localStorage.getItem('vitrina-draft') || 'null'); if (saved) for (const key of Object.keys(draft)) if (typeof saved[key] === 'string') draft[key] = saved[key]; } catch { }
 let photos = [], step = 0, admin = false, records = [], currentFilter = 'all', search = '', sending = false, processing = false;
-let detailUrls = [], toastTimer;
+let detailUrls = [], toastTimer, destroyId = null, destroying = false;
+const reviewed = record => ['reviewed', 'deleting'].includes(record.status);
 const contacts = [['whatsapp', 'WhatsApp', 'Ej. +54 9 11 1234 5678'], ['facebook', 'Facebook', 'https://facebook.com/tuempresa'], ['website', 'Sitio web', 'https://tuempresa.com'], ['instagram', 'Instagram', 'https://instagram.com/tuempresa'], ['tiktok', 'TikTok', 'https://tiktok.com/@tuempresa']];
 const notice = () => !isCloud ? '<p class="mode-notice"><strong>Versión de prueba.</strong> Los datos y las fotos se guardan solo en este navegador. Todavía no se envían al administrador.</p>' : '';
 function toast(message) { clearTimeout(toastTimer); $('#toast').textContent = message; $('#toast').hidden = false; toastTimer = setTimeout(() => $('#toast').hidden = true, 5000); }
@@ -104,17 +105,69 @@ async function dashboard() {
   catch { $('#main').innerHTML = '<div class="page"><h1>No pudimos cargar los envíos.</h1><p>Revisa la conexión y los permisos de almacenamiento.</p><button class="button primary" data-action="reload">Reintentar</button></div>'; }
 }
 function renderDashboard() {
-  $('#main').innerHTML = `<div class="page"><div class="page-heading"><div><span class="eyebrow">TU ESPACIO DE GESTIÓN</span><h1>El comienzo de nuevas vitrinas.</h1><p>Toda la información de tus proveedores, en un solo lugar.</p></div><button class="text-button" data-action="logout">Cerrar sesión ↗</button></div>${notice()}<div class="stats"><div class="stat"><span>Proveedores</span><strong>${records.length}</strong></div><div class="stat"><span>Por revisar</span><strong>${records.filter(r => r.status === 'pending').length}</strong></div><div class="stat"><span>Revisados</span><strong>${records.filter(r => r.status === 'reviewed').length}</strong></div></div><div class="export-toolbar"><div><button class="button secondary" data-action="export-all">Descargar todos los proveedores (JSON) ↓</button><p class="field-meta">Incluye todos los proveedores, ordenados por nombre de A a Z.</p></div></div><div class="toolbar"><input type="search" id="search" aria-label="Buscar proveedor" placeholder="Buscar por nombre de proveedor…" value="${esc(search)}"><div class="filters">${[['all', 'Todos'], ['pending', 'Por revisar'], ['reviewed', 'Revisados']].map(([value, label]) => `<button class="filter ${currentFilter === value ? 'active' : ''}" data-filter="${value}" aria-pressed="${currentFilter === value}">${label}</button>`).join('')}</div></div><div id="provider-list" class="provider-list"></div></div>`;
+  $('#main').innerHTML = `<div class="page"><div class="page-heading"><div><span class="eyebrow">TU ESPACIO DE GESTIÓN</span><h1>El comienzo de nuevas vitrinas.</h1><p>Toda la información de tus proveedores, en un solo lugar.</p></div><button class="text-button" data-action="logout">Cerrar sesión ↗</button></div>${notice()}<div class="stats"><div class="stat"><span>Proveedores</span><strong>${records.length}</strong></div><div class="stat"><span>Por revisar</span><strong>${records.filter(r => !reviewed(r)).length}</strong></div><div class="stat"><span>Revisados</span><strong>${records.filter(reviewed).length}</strong></div></div><div class="export-toolbar"><div><button class="button secondary" data-action="export-all">Descargar todos los proveedores (JSON) ↓</button><p class="field-meta">Incluye todos los proveedores, ordenados por nombre de A a Z.</p></div></div><div class="toolbar"><input type="search" id="search" aria-label="Buscar proveedor" placeholder="Buscar por nombre de proveedor…" value="${esc(search)}"><div class="filters">${[['all', 'Todos'], ['pending', 'Por revisar'], ['reviewed', 'Revisados']].map(([value, label]) => `<button class="filter ${currentFilter === value ? 'active' : ''}" data-filter="${value}" aria-pressed="${currentFilter === value}">${label}</button>`).join('')}</div></div><div id="provider-list" class="provider-list"></div></div>`;
   renderList(); $('#search').addEventListener('input', event => { search = event.target.value; renderList(); });
 }
-function renderList() {
-  const filtered = records.filter(record => (currentFilter === 'all' || record.status === currentFilter) && record.name.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es')));
-  $('#provider-list').innerHTML = filtered.length ? filtered.map(record => `<article class="provider-row"><div class="provider-avatar">${esc(record.name.charAt(0).toUpperCase())}</div><div class="provider-info"><h3>${esc(record.name)}</h3><p>${esc(record.rubro || 'Sin rubro informado')} · ${new Date(record.createdAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })} · ${record.photos.length} fotografías</p></div><span class="badge ${record.status === 'reviewed' ? 'reviewed' : ''}">${record.status === 'reviewed' ? 'Revisado' : 'Por revisar'}</span><button class="text-button" data-detail="${esc(record.id)}">Ver información ↗</button></article>`).join('') : `<div class="empty"><span class="upload-symbol">▤</span><h3>${records.length ? 'No encontramos coincidencias.' : 'Aquí empieza tu próxima vitrina.'}</h3><p>${records.length ? 'Prueba con otro nombre o cambia el filtro.' : 'Cuando se guarde información de un proveedor, aparecerá en este espacio.'}</p>${!records.length ? '<a class="button secondary" href="#proveedor">Probar el formulario →</a>' : ''}</div>`;
+function providerRow(record) {
+  return `<article class="provider-row"><div class="provider-avatar">${esc(record.name.charAt(0).toUpperCase())}</div><div class="provider-info"><h3>${esc(record.name)}</h3><p>${esc(record.rubro || 'Sin rubro informado')} · ${new Date(record.createdAt).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })} · ${record.photos.length} fotografías</p></div><span class="badge ${reviewed(record) ? 'reviewed' : ''}">${record.status === 'deleting' ? 'Destrucción pendiente' : reviewed(record) ? 'Revisado' : 'Por revisar'}</span><div class="provider-actions"><button class="text-button" data-detail="${esc(record.id)}">Ver información ↗</button>${reviewed(record) ? `<button class="text-button danger-text" data-destroy="${esc(record.id)}">Destruir proveedor</button>` : ''}</div></article>`;
 }
+function renderList() {
+  const filtered = records.filter(record => (currentFilter === 'all' || (currentFilter === 'reviewed' ? reviewed(record) : !reviewed(record))) && record.name.toLocaleLowerCase('es').includes(search.toLocaleLowerCase('es')));
+  if (!filtered.length) {
+    $('#provider-list').innerHTML = `<div class="empty"><span class="upload-symbol">▤</span><h3>${records.length ? 'No encontramos coincidencias.' : 'Aquí empieza tu próxima vitrina.'}</h3><p>${records.length ? 'Prueba con otro nombre o cambia el filtro.' : 'Cuando se guarde información de un proveedor, aparecerá en este espacio.'}</p>${!records.length ? '<a class="button secondary" href="#proveedor">Probar el formulario →</a>' : ''}</div>`;
+    return;
+  }
+  $('#provider-list').innerHTML = [['pending','Por revisar'], ['reviewed','Revisados']].filter(([status]) => currentFilter === 'all' || status === currentFilter).map(([status,title]) => {
+    const group = filtered.filter(record => status === 'reviewed' ? reviewed(record) : !reviewed(record));
+    return `<section class="provider-section" id="providers-${status}" aria-labelledby="heading-${status}"><div class="provider-section-heading"><h2 id="heading-${status}">${title}</h2><span>${group.length} ${group.length === 1 ? 'proveedor' : 'proveedores'}</span></div>${group.map(providerRow).join('') || `<p class="section-intro">${status === 'reviewed' ? 'Los proveedores que marques como revisados aparecerán aquí.' : 'No hay proveedores por revisar.'}</p>`}</section>`;
+  }).join('');
+}
+function openDestruction(id) {
+  const record = records.find(r => r.id === id);
+  if (!admin || destroying || !record || !reviewed(record)) return;
+  $('#detail-dialog').close();
+  destroyId = id;
+  $('#destroy-provider-name').textContent = record.name;
+  $('#destroy-confirmation').value = '';
+  $('#destroy-confirmation').setCustomValidity('');
+  $('#destroy-acknowledge').checked = false;
+  $('#destroy-error').textContent = '';
+  $('#destroy-submit').disabled = false;
+  $('#destroy-submit').textContent = 'Destruir proveedor definitivamente';
+  $('#destroy-dialog').showModal();
+}
+$('#destroy-confirmation').addEventListener('input', event => event.target.setCustomValidity(''));
+$('#destroy-form').addEventListener('submit', async event => {
+  event.preventDefault();
+  const record = records.find(r => r.id === destroyId);
+  if (!admin || destroying || !record || !reviewed(record)) return;
+  const input = $('#destroy-confirmation');
+  input.setCustomValidity(input.value === record.name ? '' : 'Escribe el nombre completo exactamente como aparece arriba.');
+  if (!event.target.reportValidity()) return;
+  destroying = true;
+  $('#destroy-submit').disabled = true;
+  $('#destroy-submit').textContent = 'Destruyendo datos e imágenes…';
+  $('#destroy-error').textContent = '';
+  try {
+    await destroyProvider(record.id, input.value);
+    records = records.filter(r => r.id !== record.id);
+    destroyId = null;
+    $('#destroy-dialog').close();
+    renderDashboard();
+    toast('Proveedor destruido. Se solicitó la invalidación de caché de las imágenes.');
+  } catch (error) {
+    $('#destroy-error').textContent = error.message;
+    // Un fallo puede ocurrir después de eliminar algunas imágenes: se conserva la ficha
+    // y el plan en servidor para reintentar sin declarar un éxito incompleto.
+    $('#destroy-submit').disabled = false;
+    $('#destroy-submit').textContent = 'Reintentar destrucción';
+  } finally { destroying = false; }
+});
+$('#destroy-dialog').addEventListener('cancel', event => { if (destroying) event.preventDefault(); });
 function clearDetail() { detailUrls.forEach(url => { if (url.startsWith('blob:')) URL.revokeObjectURL(url); }); detailUrls = []; }
 async function openDetail(id) {
   const record = records.find(r => r.id === id); if (!record || !admin) return;
-  clearDetail(); $('#detail-content').innerHTML = `<span class="eyebrow">FICHA DEL PROVEEDOR</span><h2>${esc(record.name)}</h2>${summary(record)}<div class="photo-heading"><strong>Fotografías (${record.photos.length})</strong></div><div id="detail-photos" class="photo-grid" role="status">Cargando fotos…</div><p class="error" id="detail-error" role="alert"></p><div class="detail-actions"><button class="button primary" data-review="${esc(id)}" ${record.status === 'reviewed' ? 'disabled' : ''}>${record.status === 'reviewed' ? '✓ Revisado' : 'Marcar como revisado'}</button><button class="button secondary" data-export="${esc(id)}">Descargar información ↓</button></div>`;
+  clearDetail(); $('#detail-content').innerHTML = `<span class="eyebrow">FICHA DEL PROVEEDOR</span><h2>${esc(record.name)}</h2>${summary(record)}<div class="photo-heading"><strong>Fotografías (${record.photos.length})</strong></div><div id="detail-photos" class="photo-grid" role="status">Cargando fotos…</div><p class="error" id="detail-error" role="alert"></p><div class="detail-actions"><button class="button primary" data-review="${esc(id)}" ${reviewed(record) ? 'disabled' : ''}>${reviewed(record) ? '✓ Revisado' : 'Marcar como revisado'}</button><button class="button secondary" data-export="${esc(id)}">Descargar información ↓</button>${reviewed(record) ? `<button class="button danger" data-destroy="${esc(id)}">Destruir proveedor</button>` : ''}</div>`;
   $('#detail-dialog').showModal();
   const urls = await Promise.allSettled(record.photos.map(photoUrl));
   if (!$('#detail-dialog').open) { urls.forEach(r => { if (r.status === 'fulfilled' && r.value.startsWith('blob:')) URL.revokeObjectURL(r.value); }); return; }
@@ -145,11 +198,13 @@ $('#login-form').addEventListener('submit', async event => {
   finally { button.disabled = false; }
 });
 document.addEventListener('click', async event => {
-  const el = event.target.closest('button'); if (!el) return;
+  const el = event.target.closest('button'); if (!el || destroying) return;
   if ((sending || processing) && !el.closest('dialog')) return;
   if (el.dataset.action === 'login') openLogin();
   if (el.dataset.action === 'close-login') $('#login-dialog').close();
   if (el.dataset.action === 'close-detail') $('#detail-dialog').close();
+  if (el.dataset.action === 'cancel-destroy') $('#destroy-dialog').close();
+  if (el.dataset.destroy) openDestruction(el.dataset.destroy);
   if (el.dataset.action === 'choose-photos') $('#photo-input').click();
   if (el.dataset.action === 'previous') { if (step === 0) location.hash = ''; else { step--; renderForm(); focusPage(); } }
   if (el.dataset.step !== undefined) { const next = Number(el.dataset.step); if (next <= step) { step = next; renderForm(); } else if (validStep()) { step = Math.min(step + 1, next); renderForm(); } }
@@ -158,12 +213,12 @@ document.addEventListener('click', async event => {
   if (el.dataset.detail) openDetail(el.dataset.detail);
   if (el.dataset.export) exportRecord(el.dataset.export);
   if (el.dataset.action === 'export-all') await exportAll(el);
-  if (el.dataset.review) { el.disabled = true; try { const record = records.find(r => r.id === el.dataset.review); await setReviewed(record); record.status = 'reviewed'; el.textContent = '✓ Revisado'; renderDashboard(); toast('Proveedor marcado como revisado.'); } catch { el.disabled = false; $('#detail-error').textContent = 'No se pudo actualizar. Inténtalo nuevamente.'; } }
+  if (el.dataset.review) { el.disabled = true; try { const record = records.find(r => r.id === el.dataset.review); await setReviewed(record); record.status = 'reviewed'; el.textContent = '✓ Revisado'; if (!$('[data-destroy]', $('#detail-content'))) { const button = document.createElement('button'); button.className = 'button danger'; button.dataset.destroy = record.id; button.textContent = 'Destruir proveedor'; $('.detail-actions', $('#detail-content')).append(button); } renderDashboard(); toast('Proveedor marcado como revisado.'); } catch { el.disabled = false; $('#detail-error').textContent = 'No se pudo actualizar. Inténtalo nuevamente.'; } }
   if (el.dataset.action === 'reload' && admin) dashboard();
   if (el.dataset.action === 'logout') { try { await logout(); admin = false; location.hash = ''; } catch { toast('No pudimos cerrar la sesión. Inténtalo nuevamente.'); } }
 });
 $('#detail-dialog').addEventListener('close', clearDetail);
-function route() { if (sending || processing) return; const hash = location.hash; if (hash === '#proveedor') { step = 0; renderForm(); } else if (hash === '#admin') { if (admin) dashboard(); else { home(); openLogin(); } } else home(); focusPage(); }
+function route() { if (sending || processing || destroying) return; const hash = location.hash; if (hash === '#proveedor') { step = 0; renderForm(); } else if (hash === '#admin') { if (admin) dashboard(); else { home(); openLogin(); } } else home(); focusPage(); }
 window.addEventListener('hashchange', route);
-window.addEventListener('beforeunload', event => { if (sending || processing) { event.preventDefault(); event.returnValue = ''; } });
+window.addEventListener('beforeunload', event => { if (sending || processing || destroying) { event.preventDefault(); event.returnValue = ''; } });
 route();

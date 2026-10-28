@@ -29,6 +29,7 @@ service cloud.firestore {
         && request.resource.data.photos.size() <= 5
         && request.resource.data.photos.toSet().size() == request.resource.data.photos.size();
       allow update: if isAdmin()
+        && resource.data.status != 'deleting'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
         && request.resource.data.status == 'reviewed';
       allow delete: if false;

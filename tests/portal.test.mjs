@@ -129,3 +129,56 @@ test('validación de almacenamiento, exportación vacía y URLs de fotos sin rec
   await adminLogin(page);const exported=await readDownload(page,page.getByRole('button',{name:'Descargar todos los proveedores'}));
   assert.equal(exported.total,0);assert.deepEqual(exported.providers,[]);await context.close();
 });
+
+test('proveedores separados, traslado al revisar y destrucción local confirmada y persistente',async()=>{
+  const {context,page}=await start();await seedProviders(page);await adminLogin(page);
+  assert.equal(await page.locator('#providers-pending .provider-row').count(),1);
+  assert.equal(await page.locator('#providers-reviewed .provider-row').count(),1);
+  assert.equal(await page.locator('#providers-pending [data-destroy]').count(),0);
+  await page.setViewportSize({width:390,height:844});
+  await page.screenshot({path:'test-results/admin-grupos-movil.png',fullPage:true});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.locator('#providers-reviewed [data-destroy]').click();
+  await page.getByRole('button',{name:'Cancelar',exact:true}).click();
+  assert.equal(await page.locator('.provider-row').count(),2);
+  await page.locator('#providers-pending [data-detail]').click();
+  await page.getByRole('button',{name:'Marcar como revisado'}).click();
+  await page.getByRole('button',{name:'✓ Revisado',exact:true}).waitFor();
+  assert.equal(await page.locator('#providers-pending .provider-row').count(),0);
+  assert.equal(await page.locator('#providers-reviewed .provider-row').count(),2);
+  await page.getByRole('button',{name:'Cerrar',exact:true}).last().click();
+  await page.locator('#providers-reviewed .provider-row').filter({hasText:'Zeta anterior'}).getByRole('button',{name:'Destruir proveedor',exact:true}).click();
+  await page.screenshot({path:'test-results/destruir-confirmacion-movil.png',fullPage:true});
+  assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));
+  await page.locator('#destroy-confirmation').fill('nombre incorrecto');await page.locator('#destroy-acknowledge').check();
+  await page.locator('#destroy-submit').click();
+  assert.equal(await page.locator('#destroy-dialog').evaluate(el=>el.open),true);
+  assert.equal(await page.locator('.provider-row').count(),2);
+  await page.locator('#destroy-confirmation').fill('Zeta anterior');
+  await page.locator('#destroy-submit').click();
+  await page.locator('#destroy-dialog').waitFor({state:'hidden'});
+  assert.equal(await page.locator('.provider-row').count(),1);
+  const exported=await readDownload(page,page.getByRole('button',{name:'Descargar todos los proveedores'}));
+  assert.equal(exported.total,1);assert.equal(exported.providers[0].name,'Álamo nuevo');
+  await page.reload();await page.keyboard.press('Escape');await adminLogin(page);
+  assert.equal(await page.locator('.provider-row').count(),1);
+  assert.equal(await page.locator('.provider-row').filter({hasText:'Zeta anterior'}).count(),0);
+  await context.close();
+});
+
+test('un fallo de destrucción conserva la ficha, muestra el error y permite reintentar',async()=>{
+  const {context,page}=await start();await seedProviders(page);await adminLogin(page);
+  // Sustituye únicamente el endpoint en la capa de almacenamiento de este contexto local.
+  await page.route('**/storage.js',async route=>{
+    const response=await route.fetch();let body=await response.text();
+    body=body.replace('export async function destroyProvider(id, confirmation) {',"export async function destroyProvider(id, confirmation) { throw new Error('Cloudinary no confirmó el borrado.');");
+    await route.fulfill({response,body});
+  });
+  await page.reload();await page.keyboard.press('Escape');await adminLogin(page);
+  await page.locator('#providers-reviewed [data-destroy]').click();
+  await page.locator('#destroy-confirmation').fill('Álamo nuevo');await page.locator('#destroy-acknowledge').check();await page.locator('#destroy-submit').click();
+  await page.locator('#destroy-error').getByText('Cloudinary no confirmó el borrado.').waitFor();
+  assert.equal(await page.locator('.provider-row').count(),2);
+  assert.equal(await page.locator('#destroy-submit').textContent(),'Reintentar destrucción');
+  await page.getByRole('button',{name:'Cancelar',exact:true}).click();await context.close();
+});

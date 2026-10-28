@@ -66,3 +66,7 @@ Al recargar la página, desaparece el aviso de demostración, el acceso solicita
 La integración está preparada, pero no ha sido probada contra tu proyecto real porque todavía no tenemos su configuración. Las reglas tampoco se han desplegado. Para un formulario público con mucho tráfico, se puede añadir App Check y control de abuso; la autenticación anónima no impide envíos repetidos. El límite es por ficha, no una verificación de identidad comercial. No hay notificaciones por correo: los nuevos envíos se consultan al abrir o recargar el panel.
 
 Fuentes: [SDK web por CDN](https://firebase.google.com/docs/web/alt-setup), [autenticación anónima](https://firebase.google.com/docs/auth/web/anonymous-auth), [reglas de Storage y acceso a Firestore](https://firebase.google.com/docs/storage/security/rules-conditions).
+
+## Destruir proveedores revisados
+
+El borrado definitivo se ejecuta en una función de Vercel con Firebase Admin y Cloudinary. Consultar [DESTRUCCION-PROVEEDORES.md](DESTRUCCION-PROVEEDORES.md) para configurar las tres variables privadas y desplegar las reglas actualizadas. No habilitar la eliminación directa del cliente ni exponer el API Secret.

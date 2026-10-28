@@ -86,3 +86,21 @@ export async function photoUrl(photo) {
   if (!isCloud) return URL.createObjectURL(photo.blob);
   return photo;
 }
+
+export async function destroyProvider(id, confirmation) {
+  if (!isCloud) {
+    const record = await localOperation('readonly', store => store.get(id));
+    if (!record || !['reviewed', 'deleting'].includes(record.status) || confirmation !== record.name) throw new Error('Solo puedes destruir un proveedor revisado confirmando su nombre.');
+    await localOperation('readwrite', store => store.delete(id));
+    return;
+  }
+  const c = await cloud();
+  if (c.auth.currentUser?.uid !== adminUid) throw new Error('Ingresa como administrador.');
+  const token = await c.auth.currentUser.getIdToken();
+  let response;
+  try {
+    response = await fetch('/api/destroy-provider', {method:'POST', headers:{'Content-Type':'application/json', Authorization:`Bearer ${token}`}, body:JSON.stringify({id, confirmation})});
+  } catch { throw new Error('Se perdió la conexión. Actualiza el panel y reintenta la destrucción si la ficha sigue visible.'); }
+  const data = await response.json().catch(() => null);
+  if (!response.ok || !data?.deleted) throw new Error(data?.error || 'No se confirmó la destrucción. Actualiza el panel antes de reintentar.');
+}

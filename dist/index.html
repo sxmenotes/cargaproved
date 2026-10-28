@@ -13,6 +13,17 @@
   <footer class="footer"><span>Un buen negocio merece una buena vitrina.</span><span>Hecho para conectar <span aria-hidden="true">↗</span></span></footer>
   <dialog id="login-dialog" aria-labelledby="login-title"><button class="close-button" data-action="close-login" aria-label="Cerrar">×</button><span class="eyebrow">TU ESPACIO DE GESTIÓN</span><h2 id="login-title">Hola, administrador.</h2><p>Ingresa para revisar la información de tus proveedores.</p><form id="login-form"><label for="admin-email" id="email-label" hidden>Correo electrónico<input id="admin-email" type="email" autocomplete="username"></label><label for="admin-password">Contraseña<input id="admin-password" type="password" required autocomplete="current-password" placeholder="Ingresa tu contraseña"></label><p id="login-error" class="error" role="alert"></p><button class="button primary full" type="submit">Ingresar al panel <span>→</span></button></form><p class="demo-login" id="demo-login">Acceso de demostración: <strong>Vitrina2026!</strong><br>Esta clave solo habilita el panel local de prueba. La protección real se activa al conectar Firebase.</p></dialog>
   <dialog id="detail-dialog" class="detail-dialog" aria-label="Información del proveedor"><button class="close-button" data-action="close-detail" aria-label="Cerrar">×</button><div id="detail-content"></div></dialog>
+  <dialog id="destroy-dialog" aria-labelledby="destroy-title">
+    <h2 id="destroy-title">Destruir proveedor</h2>
+    <p>Vas a eliminar definitivamente la ficha de <strong id="destroy-provider-name"></strong> y sus imágenes y versiones de respaldo en Cloudinary. Esta acción no tiene deshacer.</p>
+    <p>La caché de las imágenes puede tardar unos minutos en desaparecer. Los archivos ya descargados, las copias externas y los originales antiguos en ImgBB no se eliminan desde este panel.</p>
+    <form id="destroy-form">
+      <label for="destroy-confirmation">Escribe el nombre completo del proveedor<input id="destroy-confirmation" required autocomplete="off" spellcheck="false"></label>
+      <label class="consent"><input id="destroy-acknowledge" type="checkbox" required><span>Entiendo que se eliminarán los datos y las imágenes sin opción de restaurarlos desde el panel.</span></label>
+      <p id="destroy-error" class="error" role="alert"></p>
+      <div class="detail-actions"><button type="button" class="button secondary" data-action="cancel-destroy">Cancelar</button><button id="destroy-submit" type="submit" class="button danger">Destruir proveedor definitivamente</button></div>
+    </form>
+  </dialog>
   <div id="toast" class="toast" role="status" hidden></div>
   <script type="module" src="app.js"></script>
 </body></html>

@@ -18,7 +18,8 @@ Abre http://localhost:4173. El servidor usa Node.js y no requiere instalar depen
 - Hasta cinco fotos JPG, PNG o WebP, de máximo 8 MB cada una; arrastrar, vista previa, quitar y validar archivos.
 - Revisión previa y autorización para usar el material en la vitrina.
 - Borrador de textos local. Las fotos seleccionadas se mantienen en memoria hasta el envío; una vez enviadas se guardan como archivos en IndexedDB en modo local, o Cloudinary con sus URLs en Firestore.
-- Panel con contraseña, búsqueda, filtros, detalle, descarga de datos y fotos, y marcado como revisado.
+- Panel con contraseña, búsqueda, filtros, detalle, descarga de datos y fotos, y secciones separadas Por revisar y Revisados.
+- Destrucción confirmada de proveedores revisados mediante una función privada de Vercel: elimina imágenes y respaldos de Cloudinary y la ficha de Firestore. Requiere las variables del servidor indicadas en [DESTRUCCION-PROVEEDORES.md](DESTRUCCION-PROVEEDORES.md).
 - Rubros tomados de [Red de Proveedores del Maule](https://www.redproveedoresdelmaule.cl/#rubros). Las fichas anteriores sin rubro siguen disponibles.
 - Descarga general JSON con todos los proveedores ordenados por nombre (A–Z), sin depender de la búsqueda ni de los filtros. Incluye todos los campos, fechas, estado y fotos: URLs en Firebase y datos base64 con metadatos en modo local.
 - El máximo de cinco fotos se aplica solo a nuevos envíos; las fotos existentes se conservan completas.
@@ -52,3 +53,5 @@ Para actualizar un sitio conectado a Firebase, publica primero `firestore.rules`
 ## Fotografías en Cloudinary
 
 La carga usa `fetch` sin instalar SDK. Configuración pública en `dist/cloudinary-config.js`; el preset debe ser **Unsigned**, con formatos JPG/PNG/WebP y máximo 8 MB configurados también en Cloudinary. Firebase conserva los textos y URLs. Publicar `dist/` para activar el cambio; las fichas existentes conservan sus enlaces hasta importar la migración. Nunca poner el API Secret en el sitio.
+
+El servidor `npm run dev` sirve la interfaz local. Para probar la función real, usar Vercel con sus variables privadas. Las pruebas automáticas del borrado simulan los servicios externos y no eliminan proveedores reales.
