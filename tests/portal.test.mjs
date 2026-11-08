@@ -182,3 +182,83 @@ test('un fallo de destrucción conserva la ficha, muestra el error y permite rei
   assert.equal(await page.locator('#destroy-submit').textContent(),'Reintentar destrucción');
   await page.getByRole('button',{name:'Cancelar',exact:true}).click();await context.close();
 });
+
+test('modo nube móvil: fotos sin MIME explícito, reintento sin re-subir fotos y renovación de sesión anónima',async()=>{
+  const context=await browser.newContext({viewport:{width:390,height:844}});
+  const page=await context.newPage();
+  let sdkFails=true, uploadCalls=0, failSecondPhoto=true, anonCount=0, setDocCalls=[];
+  await page.route('https://www.gstatic.com/firebasejs/12.4.0/**',async route=>{
+    if(sdkFails) { await route.abort('failed'); return; }
+    const url=route.request().url();
+    if(url.endsWith('firebase-app.js')) {
+      await route.fulfill({contentType:'text/javascript',body:'const apps=[]; export const getApps=()=>apps; export const getApp=()=>apps[0]; export const initializeApp=cfg=>{const a={cfg}; apps.push(a); return a;};'});
+    } else if(url.endsWith('firebase-auth.js')) {
+      await route.fulfill({contentType:'text/javascript',body:`
+        const auth={currentUser:{uid:'stale-uid'}, authStateReady:async()=>{}};
+        export const browserSessionPersistence='session';
+        export const inMemoryPersistence='memory';
+        export const getAuth=()=>auth;
+        export const setPersistence=async(_,mode)=>{if(mode==='session') throw new Error('WebView storage blocked');};
+        export const signInAnonymously=async()=>{window.__anonCount=(window.__anonCount||0)+1; auth.currentUser={uid:'fresh-uid-'+window.__anonCount}; return {user:auth.currentUser};};
+        export const signOut=async()=>{auth.currentUser=null;};
+      `});
+    } else if(url.endsWith('firebase-firestore.js')) {
+      await route.fulfill({contentType:'text/javascript',body:`
+        export const getFirestore=()=>({});
+        export const doc=(_,col,id)=>({col,id});
+        export const serverTimestamp=()=>'SERVER_TIME';
+        export const setDoc=async(ref,data)=>{
+          window.__setDocCalls=(window.__setDocCalls||[]);
+          window.__setDocCalls.push({id:ref.id,photos:data.photos});
+          if(ref.id==='stale-uid') { const err=new Error('Firebase: Missing or insufficient permissions.'); err.code='permission-denied'; throw err; }
+        };
+      `});
+    }
+  });
+  await page.route('https://api.cloudinary.com/**',async route=>{
+    uploadCalls++;
+    if(uploadCalls===2 && failSecondPhoto) {
+      await route.abort('failed');
+      return;
+    }
+    await route.fulfill({contentType:'application/json',body:JSON.stringify({secure_url:`https://res.cloudinary.com/zytomafs/image/upload/v1/foto-${uploadCalls}.png`})});
+  });
+  await page.goto('http://localhost:4173/#proveedor');
+  await page.locator('#name').fill('Proveedor Móvil');
+  await page.locator('#rubro').selectOption('Fotografía' in RUBROS ? 'Fotografía' : 'Registro Audiovisual');
+  await page.locator('#description').fill('Historia desde teléfono.');
+  await page.locator('#services').fill('Cobertura completa.');
+  await page.getByRole('button',{name:'Continuar'}).click();
+  await page.locator('#instagram').fill('  https://instagram.com/movil  ');
+  await page.getByRole('button',{name:'Continuar'}).click();
+  await page.locator('#photo-input').setInputFiles([
+    {name:'camara-1.png',mimeType:'',buffer:png},
+    {name:'camara-2.png',mimeType:'image/png',buffer:Buffer.concat([png,Buffer.from([0])])}
+  ]);
+  await page.getByText('2 de 5',{exact:true}).waitFor();
+  await page.getByRole('button',{name:'Continuar'}).click();
+  await page.locator('#consent').check();
+  // Primer intento: falla la carga del SDK de Firebase por corte de red; cloudPromise debe limpiarse.
+  await page.getByRole('button',{name:'Enviar información'}).click();
+  await page.locator('#submit-error').getByText(/interrumpió la conexión/i).waitFor();
+  assert.equal(uploadCalls,0);
+  // Segundo intento: carga el SDK (con fallback a inMemoryPersistence), sube foto 1 y falla foto 2.
+  sdkFails=false;
+  await page.getByRole('button',{name:'Enviar información'}).click();
+  await page.locator('#submit-error').getByText(/conectar con Cloudinary/i).waitFor();
+  assert.equal(uploadCalls,2);
+  // Tercer intento: no vuelve a subir foto 1; sube solo foto 2 y renueva el UID anónimo ante permission-denied.
+  failSecondPhoto=false;
+  await page.getByRole('button',{name:'Enviar información'}).click();
+  await page.getByRole('heading',{name:'¡Recibimos tu información!'}).waitFor();
+  assert.equal(uploadCalls,3);
+  setDocCalls=await page.evaluate(()=>window.__setDocCalls);
+  anonCount=await page.evaluate(()=>window.__anonCount);
+  assert.equal(anonCount,1);
+  assert.deepEqual(setDocCalls.map(c=>c.id),['stale-uid','fresh-uid-1']);
+  assert.deepEqual(setDocCalls[1].photos,[
+    'https://res.cloudinary.com/zytomafs/image/upload/v1/foto-1.png',
+    'https://res.cloudinary.com/zytomafs/image/upload/v1/foto-3.png'
+  ]);
+  await context.close();
+});

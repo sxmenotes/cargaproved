@@ -46,7 +46,7 @@ function renderForm() {
     const input = $('#photo-input');
     const button = $('button[data-action="choose-photos"]');
     const zone = $('#upload-zone');
-    input.addEventListener('change', event => { addPhotos([...event.target.files]); event.target.value = ''; });
+    input.addEventListener('change', async event => { const selected = [...event.target.files]; await addPhotos(selected); event.target.value = ''; });
     button?.addEventListener('click', e => { e.stopPropagation(); input.click(); });
     zone?.addEventListener('click', e => {
       if (e.target !== button && !button.contains(e.target)) input.click();
@@ -58,13 +58,19 @@ function renderForm() {
 }
 function validStep() {
   for (const input of $('#provider-form').querySelectorAll('input[required]:not([type="checkbox"]),textarea[required],select[required]')) input.setCustomValidity(input.value.trim() ? '' : 'Completa este campo con información de tu empresa.');
-  if (step === 1) for (const [key] of contacts.slice(1)) { const input = $(`#${key}`); input.setCustomValidity(input.value && !/^https?:\/\//i.test(input.value) ? 'Ingresa un enlace que comience con https:// o http://.' : ''); }
+  if (step === 1) for (const [key] of contacts.slice(1)) { const input = $(`#${key}`); if (input) { input.value = draft[key] = input.value.trim(); input.setCustomValidity(input.value && !/^https?:\/\//i.test(input.value) ? 'Ingresa un enlace que comience con https:// o http://.' : ''); } }
   return $('#provider-form').reportValidity();
 }
 function renderPhotos() {
   const grid = $('#photo-grid'); if (!grid) return;
   grid.innerHTML = photos.map((photo, i) => `<div class="photo-tile"><img src="${photo.url}" alt="${esc(photo.name)}">${step === 2 ? `<button type="button" data-remove="${i}" aria-label="Eliminar foto ${i + 1}">×</button>` : ''}<small>${esc(photo.name)}</small></div>`).join('');
   if ($('#photo-count')) $('#photo-count').textContent = `${photos.length} de ${MAX_PHOTOS}`;
+}
+function resolvePhotoType(file) {
+  if (['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) return file.type;
+  if (file.type) return '';
+  const ext = String(file.name || '').split('.').pop().toLowerCase();
+  return { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' }[ext] || '';
 }
 async function addPhotos(files) {
   if (processing || !files.length) return;
@@ -74,14 +80,17 @@ async function addPhotos(files) {
   const errors = [];
   try {
     for (const file of files) {
-      if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) { errors.push(`${file.name}: solo se aceptan fotos JPG, PNG o WebP.`); continue; }
+      const type = resolvePhotoType(file);
+      if (!type) { errors.push(`${file.name}: solo se aceptan fotos JPG, PNG o WebP.`); continue; }
       if (file.size > 8 * 1024 * 1024) { errors.push(`${file.name}: supera el límite de 8 MB.`); continue; }
       if (photos.some(p => p.name === file.name && p.size === file.size && p.lastModified === file.lastModified)) { errors.push(`${file.name}: esta foto ya está agregada.`); continue; }
-      const url = URL.createObjectURL(file);
+      let url;
       try {
+        const blob = new Blob([await file.arrayBuffer()], { type });
+        url = URL.createObjectURL(blob);
         await new Promise((resolve, reject) => { const img = new Image(); img.onload = resolve; img.onerror = reject; img.src = url; });
-        photos.push({ name: file.name, size: file.size, type: file.type, lastModified: file.lastModified, blob: file, url });
-      } catch { URL.revokeObjectURL(url); errors.push(`${file.name}: no se pudo leer como imagen.`); }
+        photos.push({ name: file.name, size: blob.size, type, lastModified: file.lastModified, blob, url });
+      } catch { if (url) URL.revokeObjectURL(url); errors.push(`${file.name}: no se pudo leer como imagen.`); }
     }
   } finally { processing = false; if ($('#next-button')) $('#next-button').disabled = false; renderPhotos(); if ($('#photo-error')) $('#photo-error').textContent = errors.join(' '); }
 }
@@ -89,6 +98,7 @@ async function submitProvider() {
   if (sending || !$('#consent').checked) return;
   sending = true;
   const button = $('#next-button'); button.disabled = true; button.textContent = 'Guardando…';
+  if ($('#submit-error')) $('#submit-error').textContent = '';
   const data = { ...Object.fromEntries(Object.entries(draft).map(([key, value]) => [key, value.trim()])), photos: photos.map(({ url, ...photo }) => photo) };
   try {
     const id = await saveProvider(data, message => button.textContent = message);
@@ -96,7 +106,12 @@ async function submitProvider() {
     try { localStorage.removeItem('vitrina-draft'); } catch { }
     $('#main').innerHTML = `<div class="page"><div class="success"><div class="success-icon">✓</div><span class="eyebrow">EL PRIMER PASO YA ESTÁ DADO</span><h1>${isCloud ? '¡Recibimos tu información!' : '¡Tu prueba quedó guardada!'}</h1><p>${isCloud ? 'Gracias por compartir la esencia de tu negocio. Revisaremos tu material para comenzar a crear tu vitrina virtual.' : 'Puedes revisar la ficha y las fotos desde el panel de administrador en este mismo navegador. Cuando conectemos Firebase, los proveedores podrán enviar su material desde cualquier dispositivo.'}</p><p>Referencia: <strong>${esc(id.slice(0, 8).toUpperCase())}</strong></p><a class="button primary" href="#">Volver al inicio <span>→</span></a></div></div>`;
     history.replaceState(null, '', '#listo'); focusPage();
-  } catch (error) { $('#submit-error').textContent = isCloud ? (error.message.startsWith('Cierra') ? error.message : 'No pudimos enviar la información. Revisa tu conexión y la configuración de Firebase. Tus datos siguen aquí; inténtalo nuevamente.') : 'No pudimos guardar la prueba. Comprueba que el navegador permita almacenamiento y que tenga espacio disponible.'; button.disabled = false; button.textContent = isCloud ? 'Enviar información →' : 'Guardar prueba →'; }
+  } catch (error) {
+    data.photos.forEach((photo, i) => { if (photo.uploadedUrl && photos[i]) photos[i].uploadedUrl = photo.uploadedUrl; });
+    $('#submit-error').textContent = isCloud ? (error?.message || 'No pudimos enviar la información. Revisa tu conexión e inténtalo nuevamente; tus datos siguen aquí.') : 'No pudimos guardar la prueba. Comprueba que el navegador permita almacenamiento y que tenga espacio disponible.';
+    button.disabled = false;
+    button.textContent = isCloud ? 'Enviar información →' : 'Guardar prueba →';
+  }
   finally { sending = false; }
 }
 async function dashboard() {
@@ -117,7 +132,7 @@ function renderList() {
     $('#provider-list').innerHTML = `<div class="empty"><span class="upload-symbol">▤</span><h3>${records.length ? 'No encontramos coincidencias.' : 'Aquí empieza tu próxima vitrina.'}</h3><p>${records.length ? 'Prueba con otro nombre o cambia el filtro.' : 'Cuando se guarde información de un proveedor, aparecerá en este espacio.'}</p>${!records.length ? '<a class="button secondary" href="#proveedor">Probar el formulario →</a>' : ''}</div>`;
     return;
   }
-  $('#provider-list').innerHTML = [['pending','Por revisar'], ['reviewed','Revisados']].filter(([status]) => currentFilter === 'all' || status === currentFilter).map(([status,title]) => {
+  $('#provider-list').innerHTML = [['pending', 'Por revisar'], ['reviewed', 'Revisados']].filter(([status]) => currentFilter === 'all' || status === currentFilter).map(([status, title]) => {
     const group = filtered.filter(record => status === 'reviewed' ? reviewed(record) : !reviewed(record));
     return `<section class="provider-section" id="providers-${status}" aria-labelledby="heading-${status}"><div class="provider-section-heading"><h2 id="heading-${status}">${title}</h2><span>${group.length} ${group.length === 1 ? 'proveedor' : 'proveedores'}</span></div>${group.map(providerRow).join('') || `<p class="section-intro">${status === 'reviewed' ? 'Los proveedores que marques como revisados aparecerán aquí.' : 'No hay proveedores por revisar.'}</p>`}</section>`;
   }).join('');
